@@ -1,0 +1,418 @@
+import unittest
+import psycopg2
+from HtmlTestRunner import HTMLTestRunner
+from api import *
+
+
+class TestShiftLabAPI(unittest.TestCase):
+    def setUp(self):
+        self.conn = psycopg2.connect(database="database", user="user", password="password", host="host",
+                                     port="port")
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_sign_in(self):
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("refreshToken", data)
+        self.assertIn("jwt", data)
+        self.assertEqual(type(data.get("jwt")), str)
+        self.assertEqual(type(data.get("refreshToken")), str)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.users WHERE name = '{name}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], name)
+        self.assertIsNotNone(rows[0][2])
+        cur.execute(f"SELECT * FROM public.refresh_tokens WHERE string_token = '{refreshToken}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][2], refreshToken)
+        cur.close()
+
+    def test_token_refresh(self):
+        response = token_refresh()
+        refreshToken = response.json().get("refreshToken")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("refreshToken", data)
+        self.assertIn("jwt", data)
+        self.assertEqual(type(data.get("jwt")), str)
+        self.assertEqual(type(data.get("refreshToken")), str)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.refresh_tokens WHERE string_token = '{refreshToken}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][2], refreshToken)
+        cur.close()
+
+    def test_tasks_decision_vacation(self):
+        self.assertEqual(tasks_decision_vacation().status_code, 200)
+
+    def test_vacation_requests(self):
+        response = vacation_requests()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("id", data[0])
+        self.assertIn("firstDate", data[0])
+        self.assertIn("lastDate", data[0])
+        self.assertIn("bossId", data[0])
+        self.assertIn("type", data[0])
+        self.assertIn("status", data[0])
+        self.assertIn("comment", data[0])
+        self.assertIn("alternates", data[0])
+        self.assertIn("employeeName", data[0])
+        self.assertIn("alternateName", data[0]['alternates'][0])
+        self.assertEqual(type(data[0].get("id")), str)
+        self.assertEqual(type(data[0].get("firstDate")), int)
+        self.assertEqual(type(data[0].get("lastDate")), int)
+        self.assertEqual(type(data[0].get("bossId")), int)
+        self.assertEqual(type(data[0].get("type")), str)
+        self.assertEqual(type(data[0].get("status")), str)
+        self.assertEqual(type(data[0].get("comment")), str)
+        self.assertEqual(type(data[0].get("alternates")), list)
+        self.assertEqual(type(data[0].get("employeeName")), str)
+        self.assertEqual(type(data[0]['alternates'][0].get("alternateName")), str)
+
+    def test_businesstrip_country_cities(self):
+        response = businesstrip_country_cities()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("cityName", data[0])
+        self.assertEqual(type(data[0].get("cityName")), str)
+
+    def test_businesstrip_archive(self):
+        response = businesstrip_archive()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("id", data[0])
+        self.assertIn("archiveStatus", data[0])
+        self.assertIn("comment", data[0])
+        self.assertEqual(type(data[0].get("id")), int)
+        self.assertIn(data[0].get("archiveStatus"), ["APPROVED", "ON_APPROVAL", "DECLINE"])
+
+    def test_businesstrip_countries(self):
+        response = businesstrip_countries()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("countryName", data[0])
+        self.assertEqual(type(data[0].get("countryName")), str)
+
+    def test_businesstrip_request(self):
+        self.assertEqual(businesstrip_request().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.business_trip WHERE trip_aim = '{trip_aim}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], 1)
+        self.assertEqual(rows[0][2], 775)
+        self.assertEqual(rows[0][3], 460)
+        self.assertEqual(rows[0][4], 'Россия')
+        self.assertEqual(rows[0][5], 'Новосибирск')
+        self.assertEqual(rows[0][6], trip_aim)
+        self.assertEqual(rows[0][7], 0)
+        self.assertEqual(rows[0][8], True)
+        self.assertEqual(rows[0][9], True)
+        self.assertEqual(rows[0][10], 'TEST')
+        cur.close()
+
+    def test_certificate_get_email(self):
+        self.assertEqual(certificate_get_email().status_code, 200)
+
+    def test_certificate_load_url(self):
+        self.assertEqual(certificate_load_url().status_code, 200)
+
+    def test_certificate_send(self):
+        self.assertEqual(certificate_send().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.certificate WHERE owner_login = '{name}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], '01.01.2023')
+        self.assertEqual(rows[0][1], 'TEST')
+        self.assertEqual(rows[0][2], name)
+        self.assertEqual(rows[0][3], True)
+        cur.close()
+
+    def test_vacation_documents(self):
+        response = vacation_documents()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("documentTitle", data[0])
+        self.assertIn("documentUrl", data[0])
+        self.assertEqual(type(data[0].get("documentTitle")), str)
+        self.assertEqual(type(data[0].get("documentUrl")), str)
+
+    def test_vacation_alternates(self):
+        response = vacation_alternates()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("alternateName", data[0])
+        self.assertEqual(type(data[0].get('alternateName')), str)
+
+    def test_inventory(self):
+        response = inventory()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("inventories", data)
+        data_inventories = data.get("inventories")
+        self.assertEqual(type(data_inventories), list)
+        self.assertIn("taskId", data_inventories[0])
+        self.assertIn("date", data_inventories[0])
+        self.assertIn("location", data_inventories[0])
+        self.assertIn("status", data_inventories[0])
+        self.assertEqual(type(data_inventories[0].get("taskId")), int)
+        self.assertEqual(type(data_inventories[0].get("date")), int)
+        self.assertEqual(type(data_inventories[0].get("location")), str)
+        self.assertIn(data_inventories[0].get("status"), ["PERFORMED", "ERROR", "COMPLETED", "DECLINED"])
+
+    def test_inventory_details(self):
+        self.assertEqual(inventory_details().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.barcode WHERE barcode = '{barcode}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], barcode)
+        cur.execute(f"SELECT * FROM public.inventory WHERE comment = '{comment}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], 100)
+        self.assertEqual(rows[0][2], 'TEST')
+        self.assertEqual(rows[0][3], 0)
+        self.assertEqual(rows[0][4], comment)
+        cur.close()
+
+    def test_put_inventory_details(self):
+        self.assertEqual(put_inventory_details().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.barcode WHERE barcode = '{barcode}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], barcode)
+        cur.execute(f"SELECT * FROM public.inventory WHERE comment = '{put_comment}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], 100)
+        self.assertEqual(rows[0][2], 'TEST')
+        self.assertEqual(rows[0][3], 0)
+        self.assertEqual(rows[0][4], put_comment)
+        cur.close()
+
+    def test_inventory_details_id(self):
+        response = inventory_details_id()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("taskId", data)
+        self.assertIn("date", data)
+        self.assertIn("location", data)
+        self.assertIn("status", data)
+        self.assertIn("comment", data)
+        self.assertIn("listBarcode", data)
+        self.assertEqual(type(data.get("taskId")), int)
+        self.assertEqual(type(data.get("date")), int)
+        self.assertEqual(type(data.get("location")), str)
+        self.assertEqual(type(data.get("status")), str)
+        self.assertEqual(type(data.get("comment")), str)
+        self.assertEqual(type(data.get("listBarcode")), list)
+        self.assertEqual(type(data.get("listBarcode")[0]), str)
+
+    def test_booked_meeting_rooms(self):
+        response = booked_meeting_rooms()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("date", data[0])
+        self.assertIn("address", data[0])
+        self.assertIn("reason", data[0])
+        self.assertIn("roomNumber", data[0])
+        self.assertIn("participants", data[0])
+        self.assertIn("commentary", data[0])
+        self.assertEqual(type(data[0].get("date")), int)
+        self.assertEqual(type(data[0].get("address")), str)
+        self.assertEqual(type(data[0].get("reason")), str)
+        self.assertEqual(type(data[0].get("roomNumber")), str)
+        self.assertEqual(type(data[0].get("participants")), list)
+        self.assertEqual(type(data[0].get("participants")[0]), str)
+        self.assertEqual(type(data[0].get("commentary")), str)
+
+    def test_sick_leave_request(self):
+        self.assertEqual(sick_leave_request().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.sick_leave WHERE sick_leave_number = '{sick_leave_number}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], sick_leave_number)
+        self.assertEqual(rows[0][2], 1)
+        self.assertEqual(rows[0][3], 100)
+        cur.close()
+
+    def test_tasks_feed(self):
+        response = tasks_feed()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("items", data)
+        data_items = data.get("items")
+        self.assertEqual(type(data_items), list)
+        self.assertIn("type", data_items[0])
+        self.assertIn("deliveryRequest", data_items[0])
+        data_items_delivery_request = data_items[0].get("deliveryRequest")
+        self.assertIn("requestId", data_items_delivery_request)
+        self.assertIn("creationDate", data_items_delivery_request)
+        self.assertIn("requestCreator", data_items_delivery_request)
+        self.assertIn("department", data_items_delivery_request)
+        self.assertIn("category", data_items_delivery_request)
+        self.assertIn("subcategory", data_items_delivery_request)
+        self.assertIn("tmcName", data_items_delivery_request)
+        self.assertIn("count", data_items_delivery_request)
+        self.assertIn("reason", data_items_delivery_request)
+        self.assertIn("comment", data_items_delivery_request)
+        self.assertIn("status", data_items_delivery_request)
+        self.assertIn("receivingDate", data_items_delivery_request)
+        self.assertEqual(type(data_items[0].get("type")), str)
+        self.assertEqual(type(data_items_delivery_request), dict)
+        self.assertEqual(type(data_items_delivery_request.get("requestId")), int)
+        self.assertEqual(type(data_items_delivery_request.get("creationDate")), int)
+        self.assertEqual(type(data_items_delivery_request.get("requestCreator")), str)
+        self.assertEqual(type(data_items_delivery_request.get("department")), str)
+        self.assertEqual(type(data_items_delivery_request.get("category")), str)
+        self.assertEqual(type(data_items_delivery_request.get("subcategory")), str)
+        self.assertEqual(type(data_items_delivery_request.get("tmcName")), str)
+        self.assertEqual(type(data_items_delivery_request.get("count")), int)
+        self.assertEqual(type(data_items_delivery_request.get("reason")), str)
+        self.assertEqual(type(data_items_delivery_request.get("comment")), str)
+        self.assertEqual(type(data_items_delivery_request.get("status")), str)
+        self.assertEqual(type(data_items_delivery_request.get("receivingDate")), int)
+
+    def test_tasks_decision_delivery(self):
+        self.assertEqual(tasks_decision_delivery().status_code, 200)
+
+    def test_vacation_request_decision(self):
+        self.assertEqual(vacation_request_decision().status_code, 200)
+
+    def test_vacation_days_info(self):
+        response = vacation_days_info()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("today", data)
+        self.assertIn("onEndOfYear", data)
+        self.assertIn("lastRecalculationDate", data)
+        self.assertEqual(type(data.get("today")), int)
+        self.assertEqual(type(data.get("onEndOfYear")), int)
+        self.assertEqual(type(data.get("lastRecalculationDate")), int)
+
+    def test_vacation_period(self):
+        self.assertEqual(vacation_period().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.vacation_period WHERE comment = '{comment}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], comment)
+        self.assertEqual(rows[0][2], 1)
+        self.assertEqual(rows[0][3], 100)
+        self.assertEqual(rows[0][4], 0)
+        cur.close()
+
+    def test_categories(self):
+        response = categories()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("id", data[0])
+        self.assertIn("category", data[0])
+        self.assertIn("subcategoryList", data[0])
+        data_subcategory_list = data[0].get("subcategoryList")[0]
+        self.assertIn("subcategoryId", data_subcategory_list)
+        self.assertIn("subcategory", data_subcategory_list)
+        self.assertEqual(type(data[0].get("id")), int)
+        self.assertEqual(type(data[0].get("category")), str)
+        self.assertEqual(type(data[0].get("subcategoryList")), list)
+        self.assertEqual(type(data_subcategory_list.get("subcategoryId")), int)
+        self.assertEqual(type(data_subcategory_list.get("subcategory")), str)
+
+    def test_warehouse(self):
+        response = warehouse()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("categoryId", data[0])
+        self.assertIn("subcategoryId", data[0])
+        self.assertIn("id", data[0])
+        self.assertIn("name", data[0])
+        self.assertIn("quantity", data[0])
+        self.assertIn("description", data[0])
+        self.assertIn("imageUrl", data[0])
+        self.assertEqual(type(data[0].get("categoryId")), int)
+        self.assertEqual(type(data[0].get("subcategoryId")), int)
+        self.assertEqual(type(data[0].get("id")), int)
+        self.assertEqual(type(data[0].get("name")), str)
+        self.assertEqual(type(data[0].get("quantity")), int)
+        self.assertEqual(type(data[0].get("description")), str)
+        self.assertEqual(type(data[0].get("imageUrl")), str)
+
+    def test_warehouse_requests_from_warehouse(self):
+        response = warehouse_requests_from_warehouse()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(type(data), list)
+        self.assertIn("requestId", data[0])
+        self.assertIn("creationDate", data[0])
+        self.assertIn("requestCreator", data[0])
+        self.assertIn("department", data[0])
+        self.assertIn("category", data[0])
+        self.assertIn("subcategory", data[0])
+        self.assertIn("tmcName", data[0])
+        self.assertIn("count", data[0])
+        self.assertIn("reason", data[0])
+        self.assertIn("comment", data[0])
+        self.assertIn("status", data[0])
+        self.assertIn("receivingDate", data[0])
+        self.assertEqual(type(data[0].get("category")), str)
+        self.assertEqual(type(data[0].get("comment")), str)
+        self.assertEqual(type(data[0].get("count")), int)
+        self.assertEqual(type(data[0].get("creationDate")), int)
+        self.assertEqual(type(data[0].get("department")), str)
+        self.assertEqual(type(data[0].get("reason")), str)
+        self.assertEqual(type(data[0].get("receivingDate")), int)
+        self.assertEqual(type(data[0].get("requestCreator")), str)
+        self.assertEqual(type(data[0].get("requestId")), int)
+        self.assertEqual(type(data[0].get("status")), str)
+        self.assertEqual(type(data[0].get("subcategory")), str)
+        self.assertEqual(type(data[0].get("tmcName")), str)
+
+    def test_delivery_from_warehouse(self):
+        self.assertEqual(delivery_from_warehouse().status_code, 200)
+        # DB
+        cur = self.conn.cursor()
+        cur.execute(f"SELECT * FROM public.product_request WHERE comment = '{comment}'")
+        rows = cur.fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], 'Мебель')
+        self.assertEqual(rows[0][2], comment)
+        self.assertEqual(rows[0][3], 1)
+        self.assertEqual(rows[0][6], 'TEST')
+        self.assertEqual(rows[0][10], 'Стулья')
+        self.assertEqual(rows[0][11], 'Стул обыкновенный')
+        cur.close()
+
+    def test_delivery_request_decision(self):
+        self.assertEqual(delivery_request_decision().status_code, 200)
+
+
+if __name__ == '__main__':
+    runner = HTMLTestRunner(output='reports', report_title='SHIFT API', report_name='REPORT')
+    unittest.main(testRunner=runner)
